@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gun Chat + File Share</title>
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+</head>
+<body>
+  <h2>Gun Chat + File Share</h2>
+
+  <label>Enter Room Name: </label>
+  <input id="roomInput" placeholder="room1" />
+  <button onclick="joinRoom()">Join</button>
+
+  <div id="chatArea" style="display:none;">
+    <h3>Chat</h3>
+    <input id="msgInput" placeholder="Type message..." />
+    <button onclick="sendMsg()">Send</button>
+    <ul id="messages"></ul>
+
+    <h3>File Share</h3>
+    <input type="file" id="fileInput" />
+    <button onclick="sendFile()">Upload</button>
+    <ul id="files"></ul>
+  </div>
+
+  <script>
+    let gun;
+    let room;
+
+    function joinRoom() {
+      room = document.getElementById("roomInput").value.trim();
+      if (!room) return alert("Enter a room name");
+
+      // Connect to your relay peer (change URL to your Render link)
+      gun = Gun({
+  peers: ['https://gun-relay-zcfc.onrender.com/gun']
+});
+
+      document.getElementById("chatArea").style.display = "block";
+
+      // Listen for messages
+      gun.get(room).get("messages").map().on((data, id) => {
+        if (data && data.text) {
+          const li = document.createElement("li");
+          li.textContent = data.text;
+          document.getElementById("messages").appendChild(li);
+        }
+      });
+
+      // Listen for files
+      gun.get(room).get("files").map().on((data, id) => {
+        if (data && data.name && data.url) {
+          const li = document.createElement("li");
+          li.innerHTML = `<a href="${data.url}" download="${data.name}">${data.name}</a>`;
+          document.getElementById("files").appendChild(li);
+        }
+      });
+    }
+
+    function sendMsg() {
+      const text = document.getElementById("msgInput").value;
+      if (!text) return;
+
+      gun.get(room).get("messages").set({ text: text, ts: Date.now() });
+      document.getElementById("msgInput").value = "";
+    }
+
+    function sendFile() {
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const url = e.target.result;
+        gun.get(room).get("files").set({ name: file.name, url: url, ts: Date.now() });
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
